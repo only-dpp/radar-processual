@@ -26,7 +26,8 @@ def init_db() -> None:
             tribunal_nome TEXT,
             ultima_atualizacao TEXT,
             ultimo_movimento TEXT,
-            criado_em TEXT DEFAULT CURRENT_TIMESTAMP
+            criado_em TEXT DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE(numero_processo, tribunal_alias)
         )
     """)
 

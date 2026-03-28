@@ -3,6 +3,7 @@ from __future__ import annotations
 from app.clients.datajud_client import DatajudClient
 from app.repositories.monitored_process_repository import (
     add_monitored_process,
+    delete_monitored_process,
     list_monitored_processes,
     update_monitored_process,
 )
@@ -12,7 +13,7 @@ from app.services.process_parser import extract_monitoring_snapshot
 def monitor_process(
     tribunal_alias: str,
     numero_processo: str,
-) -> None:
+) -> bool:
     client = DatajudClient()
     result = client.search_by_process_number(tribunal_alias, numero_processo)
 
@@ -21,13 +22,19 @@ def monitor_process(
     if not snapshot:
         raise ValueError("Nenhum processo encontrado para monitoramento.")
 
-    add_monitored_process(
+    created = add_monitored_process(
         numero_processo=snapshot["numero_processo"],
         tribunal_alias=tribunal_alias,
         tribunal_nome=snapshot["tribunal"],
         ultima_atualizacao=snapshot["ultima_atualizacao"],
         ultimo_movimento=snapshot["ultimo_movimento"],
     )
+
+    return created
+
+
+def remove_monitored_process(process_id: int) -> bool:
+    return delete_monitored_process(process_id)
 
 
 def check_monitored_processes() -> list[dict]:

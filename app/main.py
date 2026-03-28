@@ -3,10 +3,16 @@ from __future__ import annotations
 import argparse
 import sys
 
+from requests import HTTPError
+
 from app.clients.datajud_client import DatajudClient
 from app.core.database import init_db
 from app.repositories.monitored_process_repository import list_monitored_processes
-from app.services.monitoring_service import check_monitored_processes, monitor_process
+from app.services.monitoring_service import (
+    check_monitored_processes,
+    monitor_process,
+    remove_monitored_process,
+)
 from app.services.process_parser import parse_search_result
 from app.services.tribunal_discovery import discover_process_tribunal
 
@@ -35,6 +41,40 @@ def print_processes(result: dict) -> None:
         print(f"    Data de ajuizamento: {item['data_ajuizamento']}")
         print(f"    Última atualização: {item['data_ultima_atualizacao']}")
         print(f"    Último movimento: {item['ultimo_movimento']}")
+        print("-" * 80)
+
+
+def print_monitored_processes(items: list[dict]) -> None:
+    if not items:
+        print("Nenhum processo monitorado.")
+        return
+
+    print("\nProcessos monitorados:\n")
+
+    for item in items:
+        print(f"[{item['id']}] Processo: {item['numero_processo']}")
+        print(f"    Tribunal alias: {item['tribunal_alias']}")
+        print(f"    Tribunal nome: {item['tribunal_nome']}")
+        print(f"    Última atualização: {item['ultima_atualizacao']}")
+        print(f"    Último movimento: {item['ultimo_movimento']}")
+        print(f"    Criado em: {item['criado_em']}")
+        print("-" * 80)
+
+
+def print_updates(updates: list[dict]) -> None:
+    if not updates:
+        print("Nenhuma atualização encontrada.")
+        return
+
+    print("\nAtualizações detectadas:\n")
+
+    for item in updates:
+        print(f"[{item['id']}] Processo: {item['numero_processo']}")
+        print(f"    Tribunal: {item['tribunal']}")
+        print(f"    Última atualização antiga: {item['ultima_atualizacao_antiga']}")
+        print(f"    Última atualização nova:   {item['ultima_atualizacao_nova']}")
+        print(f"    Último movimento antigo:  {item['ultimo_movimento_antigo']}")
+        print(f"    Último movimento novo:    {item['ultimo_movimento_novo']}")
         print("-" * 80)
 
 
@@ -78,48 +118,34 @@ def handle_list_all(args: argparse.Namespace) -> None:
 
 
 def handle_monitor_process(args: argparse.Namespace) -> None:
-    monitor_process(
+    created = monitor_process(
         tribunal_alias=args.tribunal,
         numero_processo=args.numero,
     )
-    print("Processo adicionado ao monitoramento com sucesso.")
+
+    if created:
+        print("Processo adicionado ao monitoramento com sucesso.")
+    else:
+        print("Esse processo já está sendo monitorado para esse tribunal.")
 
 
 def handle_list_monitored(_: argparse.Namespace) -> None:
     items = list_monitored_processes()
-
-    if not items:
-        print("Nenhum processo monitorado.")
-        return
-
-    print("\nProcessos monitorados:\n")
-
-    for item in items:
-        print(f"[{item['id']}] Processo: {item['numero_processo']}")
-        print(f"    Tribunal alias: {item['tribunal_alias']}")
-        print(f"    Tribunal nome: {item['tribunal_nome']}")
-        print(f"    Última atualização: {item['ultima_atualizacao']}")
-        print(f"    Último movimento: {item['ultimo_movimento']}")
-        print("-" * 80)
+    print_monitored_processes(items)
 
 
 def handle_check_monitored(_: argparse.Namespace) -> None:
     updates = check_monitored_processes()
+    print_updates(updates)
 
-    if not updates:
-        print("Nenhuma atualização encontrada.")
-        return
 
-    print("\nAtualizações detectadas:\n")
+def handle_remove_monitored(args: argparse.Namespace) -> None:
+    removed = remove_monitored_process(args.id)
 
-    for item in updates:
-        print(f"[{item['id']}] Processo: {item['numero_processo']}")
-        print(f"    Tribunal: {item['tribunal']}")
-        print(f"    Última atualização antiga: {item['ultima_atualizacao_antiga']}")
-        print(f"    Última atualização nova:   {item['ultima_atualizacao_nova']}")
-        print(f"    Último movimento antigo:   {item['ultimo_movimento_antigo']}")
-        print(f"    Último movimento novo:     {item['ultimo_movimento_novo']}")
-        print("-" * 80)
+    if removed:
+        print("Processo removido do monitoramento com sucesso.")
+    else:
+        print("Nenhum processo monitorado encontrado com esse ID.")
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -206,6 +232,17 @@ def build_parser() -> argparse.ArgumentParser:
     )
     checar_parser.set_defaults(func=handle_check_monitored)
 
+    remover_parser = subparsers.add_parser(
+        "remover",
+        help="Remove um processo do monitoramento pelo ID.",
+    )
+    remover_parser.add_argument(
+        "id",
+        type=int,
+        help="ID interno do processo monitorado.",
+    )
+    remover_parser.set_defaults(func=handle_remove_monitored)
+
     return parser
 
 
@@ -213,7 +250,18 @@ def main() -> None:
     init_db()
     parser = build_parser()
     args = parser.parse_args()
-    args.func(args)
+
+    try:
+        args.func(args)
+    except HTTPError as exc:
+        print(f"Erro HTTP ao consultar o Datajud: {exc}")
+        sys.exit(1)
+    except ValueError as exc:
+        print(f"Erro: {exc}")
+        sys.exit(1)
+    except Exception as exc:
+        print(f"Erro inesperado: {exc}")
+        sys.exit(1)
 
 
 if __name__ == "__main__":
