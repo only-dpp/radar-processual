@@ -1,5 +1,30 @@
-__pycache__/
-*.pyc
-.env
+# Ambiente virtual
 .venv/
 venv/
+
+# Variáveis sensíveis
+.env
+
+# Cache Python
+__pycache__/
+*.py[cod]
+*$py.class
+
+# SQLite
+*.db
+*.sqlite3
+
+# Logs
+logs/
+*.log
+
+# Exports
+exports/
+
+# VS Code
+.vscode/
+
+# Sistema operacional
+.DS_Store
+Thumbs.db
+
