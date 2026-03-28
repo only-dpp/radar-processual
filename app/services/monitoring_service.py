@@ -1,6 +1,9 @@
 from __future__ import annotations
 
+from datetime import datetime, timezone
+
 from app.clients.datajud_client import DatajudClient
+from app.core.logger import logger
 from app.repositories.monitored_process_repository import (
     add_monitored_process,
     delete_monitored_process,
@@ -30,18 +33,41 @@ def monitor_process(
         ultimo_movimento=snapshot["ultimo_movimento"],
     )
 
+    if created:
+        logger.info(
+            "Processo adicionado ao monitoramento | numero=%s tribunal=%s",
+            numero_processo,
+            tribunal_alias,
+        )
+    else:
+        logger.info(
+            "Tentativa de duplicidade no monitoramento | numero=%s tribunal=%s",
+            numero_processo,
+            tribunal_alias,
+        )
+
     return created
 
 
 def remove_monitored_process(process_id: int) -> bool:
-    return delete_monitored_process(process_id)
+    removed = delete_monitored_process(process_id)
+
+    if removed:
+        logger.info("Processo removido do monitoramento | id=%s", process_id)
+    else:
+        logger.warning("Tentativa de remoção inválida | id=%s", process_id)
+
+    return removed
 
 
 def check_monitored_processes() -> list[dict]:
     client = DatajudClient()
     monitored = list_monitored_processes()
 
+    logger.info("Iniciando checagem de processos monitorados | total=%s", len(monitored))
+
     updates = []
+    checked_at = datetime.now(timezone.utc).isoformat()
 
     for item in monitored:
         process_id = item["id"]
@@ -60,15 +86,19 @@ def check_monitored_processes() -> list[dict]:
         )
 
         if changed:
-            updates.append({
+            update_data = {
                 "id": process_id,
                 "numero_processo": numero_processo,
+                "tribunal_alias": tribunal_alias,
                 "tribunal": snapshot["tribunal"],
                 "ultima_atualizacao_antiga": item["ultima_atualizacao"],
                 "ultima_atualizacao_nova": snapshot["ultima_atualizacao"],
                 "ultimo_movimento_antigo": item["ultimo_movimento"],
                 "ultimo_movimento_novo": snapshot["ultimo_movimento"],
-            })
+                "checked_at": checked_at,
+            }
+
+            updates.append(update_data)
 
             update_monitored_process(
                 process_id=process_id,
@@ -76,4 +106,12 @@ def check_monitored_processes() -> list[dict]:
                 ultimo_movimento=snapshot["ultimo_movimento"],
             )
 
+            logger.info(
+                "Atualização detectada | id=%s numero=%s tribunal=%s",
+                process_id,
+                numero_processo,
+                tribunal_alias,
+            )
+
+    logger.info("Checagem finalizada | atualizacoes=%s", len(updates))
     return updates

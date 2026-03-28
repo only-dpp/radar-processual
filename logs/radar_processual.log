@@ -1,0 +1,10 @@
+2026-03-27 21:32:00,008 | INFO | radar_processual | Processo adicionado ao monitoramento | numero=07016764420268070006 tribunal=api_publica_tjdft
+2026-03-27 21:32:35,066 | INFO | radar_processual | Exportação de monitorados concluída | arquivo=C:\Users\risko\Documents\radar-processual\exports\monitorados_20260327_213235.json
+2026-03-27 21:33:39,147 | INFO | radar_processual | Iniciando checagem de processos monitorados | total=1
+2026-03-27 21:33:42,292 | INFO | radar_processual | Checagem finalizada | atualizacoes=0
+2026-03-27 21:52:42,134 | INFO | radar_processual | Iniciando checagem de processos monitorados | total=1
+2026-03-27 21:52:44,469 | INFO | radar_processual | Checagem finalizada | atualizacoes=0
+2026-03-27 21:53:22,332 | INFO | radar_processual | Iniciando checagem de processos monitorados | total=1
+2026-03-27 21:53:23,186 | INFO | radar_processual | Checagem finalizada | atualizacoes=0
+2026-03-27 21:57:09,610 | INFO | radar_processual | Enviando email | para=melissariskowski@gmail.com assunto=Radar Processual | Teste de email
+2026-03-27 21:57:13,647 | INFO | radar_processual | Email enviado com sucesso | para=melissariskowski@gmail.com

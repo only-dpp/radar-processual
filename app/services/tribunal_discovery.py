@@ -3,18 +3,7 @@ from __future__ import annotations
 from typing import Any
 
 from app.clients.datajud_client import DatajudClient
-
-
-TRIBUNAIS_INICIAIS = [
-    "api_publica_tjsp",
-    "api_publica_tjrj",
-    "api_publica_tjmg",
-    "api_publica_tjdft",
-    "api_publica_trf1",
-    "api_publica_trf3",
-    "api_publica_trt2",
-    "api_publica_stj",
-]
+from app.core.tribunals import TRIBUNAIS_INICIAIS
 
 
 def discover_process_tribunal(

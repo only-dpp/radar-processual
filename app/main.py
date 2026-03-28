@@ -1,20 +1,19 @@
 from __future__ import annotations
-
+from datetime import datetime
 import argparse
 import sys
-
 from requests import HTTPError
-
+from app.core.logger import logger
+from app.core.tribunals import TRIBUNAIS
+from app.services.export_service import export_to_json
 from app.clients.datajud_client import DatajudClient
 from app.core.database import init_db
 from app.repositories.monitored_process_repository import list_monitored_processes
-from app.services.monitoring_service import (
-    check_monitored_processes,
-    monitor_process,
-    remove_monitored_process,
-)
+from app.services.monitoring_service import (check_monitored_processes, monitor_process, remove_monitored_process)
 from app.services.process_parser import parse_search_result
 from app.services.tribunal_discovery import discover_process_tribunal
+from app.services.email_service import send_updates_email
+from app.services.email_service import send_test_email
 
 
 def print_processes(result: dict) -> None:
@@ -133,12 +132,20 @@ def handle_list_monitored(_: argparse.Namespace) -> None:
     items = list_monitored_processes()
     print_monitored_processes(items)
 
-
-def handle_check_monitored(_: argparse.Namespace) -> None:
+def handle_check_monitored(args: argparse.Namespace) -> None:
     updates = check_monitored_processes()
     print_updates(updates)
 
+    if args.exportar and updates:
+        filename = f"atualizacoes_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
+        file_path = export_to_json(filename, updates)
 
+        logger.info("Exportação de atualizações concluída | arquivo=%s", file_path)
+        print(f"\nAtualizações exportadas para: {file_path}")
+
+    if args.email and updates:
+        send_updates_email(updates)
+        print("\nEmail enviado com sucesso.")
 def handle_remove_monitored(args: argparse.Namespace) -> None:
     removed = remove_monitored_process(args.id)
 
@@ -146,6 +153,29 @@ def handle_remove_monitored(args: argparse.Namespace) -> None:
         print("Processo removido do monitoramento com sucesso.")
     else:
         print("Nenhum processo monitorado encontrado com esse ID.")
+
+def handle_list_tribunals(_: argparse.Namespace) -> None:
+    print("\nTribunais disponíveis:\n")
+
+    for alias, nome in TRIBUNAIS.items():
+        print(f"- {alias}: {nome}")
+
+def handle_export_monitored(_: argparse.Namespace) -> None:
+    items = list_monitored_processes()
+
+    if not items:
+        print("Nenhum processo monitorado para exportar.")
+        return
+
+    filename = f"monitorados_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
+    file_path = export_to_json(filename, items)
+
+    logger.info("Exportação de monitorados concluída | arquivo=%s", file_path)
+    print(f"Monitorados exportados com sucesso para: {file_path}")
+
+def handle_test_email(_: argparse.Namespace) -> None:
+    send_test_email()
+    print("Email de teste enviado com sucesso.")
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -230,8 +260,18 @@ def build_parser() -> argparse.ArgumentParser:
         "checar",
         help="Verifica se houve atualização nos processos monitorados.",
     )
+    checar_parser.add_argument(
+        "--exportar",
+        action="store_true",
+        help="Exporta as atualizações encontradas para JSON.",
+    )
+    checar_parser.add_argument(
+        "--email",
+        action="store_true",
+        help="Envia email quando houver atualizações.",
+    )
     checar_parser.set_defaults(func=handle_check_monitored)
-
+    
     remover_parser = subparsers.add_parser(
         "remover",
         help="Remove um processo do monitoramento pelo ID.",
@@ -242,6 +282,24 @@ def build_parser() -> argparse.ArgumentParser:
         help="ID interno do processo monitorado.",
     )
     remover_parser.set_defaults(func=handle_remove_monitored)
+
+    tribunais_parser = subparsers.add_parser(
+        "tribunais",
+        help="Lista os aliases de tribunais disponíveis no projeto.",
+    )   
+    tribunais_parser.set_defaults(func=handle_list_tribunals)
+
+    exportar_monitorados_parser = subparsers.add_parser(
+        "exportar-monitorados",
+        help="Exporta os processos monitorados para JSON.",
+    )
+    exportar_monitorados_parser.set_defaults(func=handle_export_monitored)  
+    
+    email_teste_parser = subparsers.add_parser(
+        "testar-email",
+        help="Envia um email de teste usando a configuração SMTP atual.",
+    )
+    email_teste_parser.set_defaults(func=handle_test_email)
 
     return parser
 
@@ -260,6 +318,10 @@ def main() -> None:
         print(f"Erro: {exc}")
         sys.exit(1)
     except Exception as exc:
+        print(f"Erro inesperado: {exc}")
+        sys.exit(1)
+    except Exception as exc:
+        logger.exception("Erro inesperado na execução da CLI")
         print(f"Erro inesperado: {exc}")
         sys.exit(1)
 
