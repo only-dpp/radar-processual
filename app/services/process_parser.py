@@ -76,3 +76,34 @@ def parse_search_result(result: dict[str, Any]) -> dict[str, Any]:
         "total": total,
         "resultados": parsed_hits,
     }
+
+def extract_monitoring_snapshot(result: dict[str, Any]) -> dict[str, Any] | None:
+    parsed = parse_search_result(result)
+    resultados = parsed.get("resultados", [])
+
+    if not resultados:
+        return None
+
+    item = resultados[0]
+
+    return {
+        "numero_processo": item.get("numero_processo"),
+        "tribunal": item.get("tribunal"),
+        "ultima_atualizacao": item.get("data_ultima_atualizacao"),
+        "ultimo_movimento": item.get("ultimo_movimento"),
+    }
+def extract_monitoring_snapshot(result: dict[str, Any]) -> dict[str, Any] | None:
+    parsed = parse_search_result(result)
+    resultados = parsed.get("resultados", [])
+
+    if not resultados:
+        return None
+
+    item = resultados[0]
+
+    return {
+        "numero_processo": item.get("numero_processo"),
+        "tribunal": item.get("tribunal"),
+        "ultima_atualizacao": item.get("data_ultima_atualizacao"),
+        "ultimo_movimento": item.get("ultimo_movimento"),
+    }

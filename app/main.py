@@ -4,6 +4,9 @@ import argparse
 import sys
 
 from app.clients.datajud_client import DatajudClient
+from app.core.database import init_db
+from app.repositories.monitored_process_repository import list_monitored_processes
+from app.services.monitoring_service import check_monitored_processes, monitor_process
 from app.services.process_parser import parse_search_result
 from app.services.tribunal_discovery import discover_process_tribunal
 
@@ -74,10 +77,55 @@ def handle_list_all(args: argparse.Namespace) -> None:
     print_processes(parsed)
 
 
+def handle_monitor_process(args: argparse.Namespace) -> None:
+    monitor_process(
+        tribunal_alias=args.tribunal,
+        numero_processo=args.numero,
+    )
+    print("Processo adicionado ao monitoramento com sucesso.")
+
+
+def handle_list_monitored(_: argparse.Namespace) -> None:
+    items = list_monitored_processes()
+
+    if not items:
+        print("Nenhum processo monitorado.")
+        return
+
+    print("\nProcessos monitorados:\n")
+
+    for item in items:
+        print(f"[{item['id']}] Processo: {item['numero_processo']}")
+        print(f"    Tribunal alias: {item['tribunal_alias']}")
+        print(f"    Tribunal nome: {item['tribunal_nome']}")
+        print(f"    Última atualização: {item['ultima_atualizacao']}")
+        print(f"    Último movimento: {item['ultimo_movimento']}")
+        print("-" * 80)
+
+
+def handle_check_monitored(_: argparse.Namespace) -> None:
+    updates = check_monitored_processes()
+
+    if not updates:
+        print("Nenhuma atualização encontrada.")
+        return
+
+    print("\nAtualizações detectadas:\n")
+
+    for item in updates:
+        print(f"[{item['id']}] Processo: {item['numero_processo']}")
+        print(f"    Tribunal: {item['tribunal']}")
+        print(f"    Última atualização antiga: {item['ultima_atualizacao_antiga']}")
+        print(f"    Última atualização nova:   {item['ultima_atualizacao_nova']}")
+        print(f"    Último movimento antigo:   {item['ultimo_movimento_antigo']}")
+        print(f"    Último movimento novo:     {item['ultimo_movimento_novo']}")
+        print("-" * 80)
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        prog="jurispulse",
-        description="CLI para consulta pública de dados processuais via Datajud.",
+        prog="radar-processual",
+        description="CLI para consulta e monitoramento processual via Datajud.",
     )
 
     subparsers = parser.add_subparsers(dest="command", required=True)
@@ -134,10 +182,35 @@ def build_parser() -> argparse.ArgumentParser:
     )
     listar_parser.set_defaults(func=handle_list_all)
 
+    monitorar_parser = subparsers.add_parser(
+        "monitorar",
+        help="Adiciona um processo ao monitoramento.",
+    )
+    monitorar_parser.add_argument("numero", help="Número do processo.")
+    monitorar_parser.add_argument(
+        "--tribunal",
+        required=True,
+        help="Alias do tribunal, ex: api_publica_tjdft",
+    )
+    monitorar_parser.set_defaults(func=handle_monitor_process)
+
+    monitorados_parser = subparsers.add_parser(
+        "monitorados",
+        help="Lista os processos monitorados.",
+    )
+    monitorados_parser.set_defaults(func=handle_list_monitored)
+
+    checar_parser = subparsers.add_parser(
+        "checar",
+        help="Verifica se houve atualização nos processos monitorados.",
+    )
+    checar_parser.set_defaults(func=handle_check_monitored)
+
     return parser
 
 
 def main() -> None:
+    init_db()
     parser = build_parser()
     args = parser.parse_args()
     args.func(args)
